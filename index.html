@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
   <div id="loginView" class="login-wrap">
@@ -72,26 +73,68 @@
         </div>
       </section>
 
-      <section id="page-attendance" class="page">
-        <div class="panel"><div class="section-head"><div><h3>Presensi</h3><p class="muted">Presensi dihitung Senin–Jumat. Sabtu dan Minggu tidak dihitung.</p></div><span class="pill">Senin–Jumat</span></div>
-          <div id="attendanceStudent" class="empty">Memuat presensi...</div>
-          <div class="admin-only hidden" id="attendanceAdmin">
-            <h4>Input presensi manual</h4>
-            <form id="attendanceForm" class="form-grid">
-              <label>Siswa<select id="attendanceStudentSelect" required></select></label>
-              <label>Tanggal<input id="attendanceDate" type="date" required></label>
-              <label>Status<select id="attendanceStatus"><option value="masuk">Masuk</option><option value="tidak_masuk">Tidak masuk</option></select></label>
-              <button class="primary" type="submit">Simpan presensi</button>
-            </form>
-            <hr>
-            <h4>Scan QR Code siswa</h4>
-            <p class="muted small">Scanner ini digunakan admin. QR berisi kode siswa, bukan password.</p>
-            <div id="qr-reader" class="qr-box"></div><p id="scanMessage" class="message"></p>
-            <button id="startScanner" class="secondary">Mulai kamera</button>
-            <button id="stopScanner" class="secondary" disabled>Matikan kamera</button>
-          </div>
-        </div>
-      </section>
+      
+<section id="page-attendance" class="page">
+  <div class="panel">
+    <div class="section-head">
+      <div>
+        <h3>Presensi VII C</h3>
+        <p class="muted">Presensi Senin–Jumat menggunakan QR Code harian.</p>
+      </div>
+      <span class="pill">QR Harian</span>
+    </div>
+
+    <div id="attendanceStudent" class="empty">
+      Memuat presensi...
+    </div>
+
+    <div id="attendanceAdmin" class="admin-only hidden">
+      <hr>
+      <h4>QR Code Presensi Hari Ini</h4>
+      <p class="muted small">Buat satu QR Code untuk seluruh siswa.</p>
+      <button id="generateDailyQR" class="primary">
+        + Buat Kode QR
+      </button>
+      <div id="dailyQRDisplay" class="qr-box"></div>
+      <p id="qrAdminMessage" class="message"></p>
+
+      <hr>
+      <h4>Input presensi manual</h4>
+      <form id="attendanceForm" class="form-grid">
+        <label>Siswa
+          <select id="attendanceStudentSelect" required></select>
+        </label>
+        <label>Tanggal
+          <input id="attendanceDate" type="date" required>
+        </label>
+        <label>Status
+          <select id="attendanceStatus">
+            <option value="masuk">Masuk</option>
+            <option value="tidak_masuk">Tidak masuk</option>
+          </select>
+        </label>
+        <button class="primary" type="submit">Simpan presensi</button>
+      </form>
+    </div>
+
+    <div id="attendanceScannerArea">
+      <hr>
+      <h4>Scan QR Code Presensi</h4>
+      <p class="muted small">
+        Login menggunakan akun siswa masing-masing, lalu pindai QR Code dari admin.
+      </p>
+      <div id="student-qr-reader" class="qr-box"></div>
+      <button id="startStudentScanner" class="secondary">
+        Mulai Scan
+      </button>
+      <button id="stopStudentScanner" class="secondary" disabled>
+        Matikan Kamera
+      </button>
+      <p id="studentScanMessage" class="message"></p>
+    </div>
+  </div>
+</section>
+
 
       <section id="page-lessons" class="page">
         <div class="panel"><div class="section-head"><div><h3>Jadwal Pelajaran</h3><p class="muted">Jadwal hari berikutnya terbuka setiap pukul 18.00 WIB.</p></div></div><div id="lessonContent" class="empty">Memuat jadwal...</div></div>
