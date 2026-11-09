@@ -46,7 +46,114 @@ $("dutyForm").addEventListener("submit",async e=>{e.preventDefault();try{const d
 $("announcementForm").addEventListener("submit",async e=>{e.preventDefault();try{await saveForm(e.target,"announcements",{title:$("announcementTitle").value,body:$("announcementBody").value,event_date:$("announcementDate").value||null,event_time:$("announcementTime").value||null,location:$("announcementPlace").value,date_certainty:$("dateCertainty").value,created_by:currentUser.id});await loadManage();}catch(err){alert(err.message);}});
 $("duesForm").addEventListener("submit",async e=>{e.preventDefault();const payload={id:1,next_due_date:$("duesDate").value,monthly_amount:Number($("duesAmount").value),target_amount:$("duesTarget").value?Number($("duesTarget").value):null,updated_by:currentUser.id};const {error}=await db.from("class_settings").upsert(payload);if(error)alert(error.message);else{alert("Pengaturan kas diperbarui.");await renderDues();}});
 $("studentForm").addEventListener("submit",async e=>{e.preventDefault();const {data,error}=await db.from("profiles").update({full_name:$("studentName").value,qr_code:$("studentQr").value}).eq("email",$("studentEmail").value.trim()).select();if(error)alert(error.message);else if(!data?.length)alert("Email belum ditemukan. Buat akun tersebut lebih dulu di Supabase Authentication.");else{alert("Profil siswa disimpan.");e.target.reset();await loadManage();}});
-let scanBusy=false;
-$("startScanner").onclick=async()=>{try{scanner=new Html5Qrcode("qr-reader");await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230}},async decoded=>{if(scanBusy)return;scanBusy=true;try{const {data,error}=await db.from("profiles").select("id,full_name").eq("qr_code",decoded).eq("role","siswa").single();if(error)throw new Error("Kode QR tidak dikenali.");const date=todayISO();if(!isSchoolDay(date))throw new Error("Hari ini bukan hari sekolah.");const {error:saveError}=await db.from("attendance").upsert({student_id:data.id,attendance_date:date,status:"masuk",recorded_by:currentUser.id},{onConflict:"student_id,attendance_date"});if(saveError)throw saveError;setMessage("scanMessage",`${data.full_name} tercatat MASUK.`);await renderAttendance();}catch(err){setMessage("scanMessage",err.message);}finally{setTimeout(()=>scanBusy=false,1800);}});$("startScanner").disabled=true;$("stopScanner").disabled=false;}catch(e){setMessage("scanMessage","Kamera tidak dapat dibuka. Izinkan akses kamera dan gunakan HTTPS/GitHub Pages.");}};
-$("stopScanner").onclick=async()=>{if(scanner){await scanner.stop();scanner.clear();scanner=null;}$("startScanner").disabled=false;$("stopScanner").disabled=true;};
+
+let scanBusy = false;
+
+// ADMIN: membuat QR Code harian
+$("generateDailyQR").onclick = async () => {
+  if (!isAdmin()) return;
+
+  if (!isSchoolDay(todayISO())) {
+    setMessage("qrAdminMessage", "Presensi hanya berlaku Senin–Jumat.");
+    return;
+  }
+
+  try {
+    setMessage("qrAdminMessage", "Membuat QR Code...");
+
+    const { data, error } = await db.rpc("create_daily_qr");
+    if (error) throw error;
+
+    const display = $("dailyQRDisplay");
+    display.innerHTML = "";
+
+    new QRCode(display, {
+      text: data,
+      width: 260,
+      height: 260,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    setMessage("qrAdminMessage", "QR Code hari ini berhasil dibuat!");
+  } catch (err) {
+    setMessage("qrAdminMessage", err.message);
+  }
+};
+
+// SISWA: memindai QR Code harian
+$("startStudentScanner").onclick = async () => {
+  if (isAdmin()) return;
+
+  if (!isSchoolDay(todayISO())) {
+    setMessage("studentScanMessage", "Hari ini bukan hari sekolah.");
+    return;
+  }
+
+  try {
+    scanner = new Html5Qrcode("student-qr-reader");
+
+    await scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 230, height: 230 } },
+
+      async (decodedText) => {
+        if (scanBusy) return;
+        scanBusy = true;
+
+        try {
+          const { data, error } = await db.rpc(
+            "record_daily_attendance",
+            { p_token: decodedText }
+          );
+
+          if (error) throw error;
+
+          setMessage("studentScanMessage", data);
+          await renderAttendance();
+
+          await scanner.stop();
+          scanner.clear();
+          scanner = null;
+
+          $("startStudentScanner").disabled = false;
+          $("stopStudentScanner").disabled = true;
+
+        } catch (err) {
+          setMessage("studentScanMessage", err.message);
+        } finally {
+          scanBusy = false;
+        }
+      }
+    );
+
+    $("startStudentScanner").disabled = true;
+    $("stopStudentScanner").disabled = false;
+
+  } catch (err) {
+    setMessage(
+      "studentScanMessage",
+      "Kamera gagal dibuka. Izinkan akses kamera."
+    );
+  }
+};
+
+// Mematikan kamera
+$("stopStudentScanner").onclick = async () => {
+  if (scanner) {
+    try {
+      await scanner.stop();
+      scanner.clear();
+    } catch (err) {
+      console.error(err);
+    }
+
+    scanner = null;
+  }
+
+  $("startStudentScanner").disabled = false;
+  $("stopStudentScanner").disabled = true;
+};
+
 (async()=>{if(SUPABASE_URL.startsWith("ISI_")||SUPABASE_ANON_KEY.startsWith("ISI_")){setMessage("loginMessage","Atur Project URL dan publishable key di app.js terlebih dahulu.");return;}const {data:{session}}=await db.auth.getSession();if(session){try{currentUser=session.user;await loadProfile(currentUser);showApp();await refreshAll();}catch(e){setMessage("loginMessage",e.message);}}db.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT")return;if(event==="SIGNED_IN"&&session&&!profile){try{currentUser=session.user;await loadProfile(currentUser);showApp();await refreshAll();}catch(e){console.error(e);}}});})();
