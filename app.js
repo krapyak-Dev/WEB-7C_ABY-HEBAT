@@ -1,7 +1,7 @@
 /* VII-C class portal. Isi dua nilai berikut dari Supabase > Project Settings > API.
    Gunakan Project URL dan publishable/anon key. JANGAN pernah menaruh secret/service_role key di sini. */
-const SUPABASE_URL = "ISI_PROJECT_URL";
-const SUPABASE_ANON_KEY = "ISI_PUBLISHABLE_ATAU_ANON_KEY";
+const SUPABASE_URL = "https://zaytcjgizppezmnvuery.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Ffoq9EiNuU_A5DaYLpjPsg__abOmLW_";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
