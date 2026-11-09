@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#11100e">
+  <title>VII-C | Portal Kelas</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <div id="loginView" class="login-wrap">
+    <section class="login-card">
+      <img class="class-logo" src="logo-kelas.png" alt="Logo kelas VII-C" onerror="this.style.display='none'">
+      <div class="eyebrow">PORTAL DIGITAL KELAS</div>
+      <h1>VII <span>—</span> C</h1>
+      <p class="muted">Masuk untuk melihat informasi kelas.</p>
+      <form id="loginForm">
+        <label>Email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="nama@email.com" required>
+        <label>Password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="Masukkan password" required>
+        <button class="primary full" type="submit">Masuk</button>
+      </form>
+      <p id="loginMessage" class="message"></p>
+      <p class="tiny muted">Akun dibuat dan dikelola oleh admin kelas.</p>
+    </section>
+  </div>
+
+  <div id="appView" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="logo-kelas.png" alt="" onerror="this.style.display='none'">
+        <div><b>VII-C</b><small>CLASS PORTAL</small></div>
+      </div>
+      <div class="user-mini">
+        <div class="avatar" id="avatarInitial">V</div>
+        <div><b id="sideName">Siswa</b><small id="sideRole">Siswa</small></div>
+      </div>
+      <nav id="navigation">
+        <button class="nav-btn active" data-page="home">⌂ <span>Beranda</span></button>
+        <button class="nav-btn" data-page="attendance">▣ <span>Presensi</span></button>
+        <button class="nav-btn" data-page="lessons">▤ <span>Jadwal Pelajaran</span></button>
+        <button class="nav-btn" data-page="duties">✓ <span>Jadwal Piket</span></button>
+        <button class="nav-btn" data-page="dues">◈ <span>Uang Kas</span></button>
+        <button class="nav-btn" data-page="announcements">◉ <span>Pengumuman</span></button>
+        <button class="nav-btn admin-only hidden" data-page="manage">⚙ <span>Kelola Kelas</span></button>
+      </nav>
+      <button id="logoutBtn" class="logout">↪ Keluar</button>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><div class="eyebrow">KELAS VII C</div><h2 id="pageTitle">Beranda</h2></div>
+        <div class="top-date" id="todayLabel"></div>
+      </header>
+      <section id="page-home" class="page active">
+        <div class="welcome panel">
+          <div><div class="eyebrow">SELAMAT DATANG</div><h1>Halo, <span id="welcomeName">Siswa</span>!</h1><p class="muted">Semua informasi kelas VII-C ada di satu tempat.</p></div>
+          <div class="welcome-mark">VII<br><b>C</b></div>
+        </div>
+        <div class="stats-grid">
+          <article class="stat panel"><span>Presensi hari ini</span><b id="homeAttendance">—</b><small id="attendanceHint">Hari sekolah</small></article>
+          <article class="stat panel"><span>Jadwal pelajaran</span><b id="homeLesson">—</b><small>Jadwal berikutnya</small></article>
+          <article class="stat panel"><span>Jadwal piket</span><b id="homeDuty">—</b><small>Piket berikutnya</small></article>
+          <article class="stat panel"><span>Kas berikutnya</span><b id="homeDues">—</b><small id="homeDuesDate">Tanggal pembayaran</small></article>
+        </div>
+        <div class="two-col">
+          <article class="panel"><div class="section-head"><h3>Jadwal yang segera dibuka</h3><span class="pill">Otomatis</span></div><div id="homeNextLesson" class="empty">Belum ada jadwal.</div></article>
+          <article class="panel"><div class="section-head"><h3>Pengumuman terbaru</h3><button class="text-btn" data-goto="announcements">Lihat semua</button></div><div id="homeAnnouncements" class="empty">Belum ada pengumuman.</div></article>
+        </div>
+      </section>
+
+      <section id="page-attendance" class="page">
+        <div class="panel"><div class="section-head"><div><h3>Presensi</h3><p class="muted">Presensi dihitung Senin–Jumat. Sabtu dan Minggu tidak dihitung.</p></div><span class="pill">Senin–Jumat</span></div>
+          <div id="attendanceStudent" class="empty">Memuat presensi...</div>
+          <div class="admin-only hidden" id="attendanceAdmin">
+            <h4>Input presensi manual</h4>
+            <form id="attendanceForm" class="form-grid">
+              <label>Siswa<select id="attendanceStudentSelect" required></select></label>
+              <label>Tanggal<input id="attendanceDate" type="date" required></label>
+              <label>Status<select id="attendanceStatus"><option value="masuk">Masuk</option><option value="tidak_masuk">Tidak masuk</option></select></label>
+              <button class="primary" type="submit">Simpan presensi</button>
+            </form>
+            <hr>
+            <h4>Scan QR Code siswa</h4>
+            <p class="muted small">Scanner ini digunakan admin. QR berisi kode siswa, bukan password.</p>
+            <div id="qr-reader" class="qr-box"></div><p id="scanMessage" class="message"></p>
+            <button id="startScanner" class="secondary">Mulai kamera</button>
+            <button id="stopScanner" class="secondary" disabled>Matikan kamera</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-lessons" class="page">
+        <div class="panel"><div class="section-head"><div><h3>Jadwal Pelajaran</h3><p class="muted">Jadwal hari berikutnya terbuka setiap pukul 18.00 WIB.</p></div></div><div id="lessonContent" class="empty">Memuat jadwal...</div></div>
+      </section>
+
+      <section id="page-duties" class="page">
+        <div class="panel"><div class="section-head"><div><h3>Jadwal Piket</h3><p class="muted">Jadwal piket besok terbuka mulai pukul 18.00 WIB hari sebelumnya.</p></div></div><div id="dutyContent" class="empty">Memuat jadwal...</div></div>
+      </section>
+
+      <section id="page-dues" class="page">
+        <div class="panel"><div class="section-head"><div><h3>Kalender Uang Kas</h3><p class="muted">Iuran kelas Rp10.000 per bulan.</p></div><span class="pill">Rp10.000 / bulan</span></div>
+          <div class="countdown"><small>HITUNG MUNDUR PEMBAYARAN BERIKUTNYA</small><b id="duesCountdown">—</b><span id="duesDateLabel">Tanggal belum diatur admin.</span></div>
+          <div id="duesCalendar" class="calendar"></div>
+          <div class="admin-only hidden" id="duesAdmin"><hr><h4>Pengaturan kas (khusus admin)</h4><form id="duesForm" class="form-grid"><label>Tanggal pembayaran berikutnya<input id="duesDate" type="date" required></label><label>Nominal per bulan (Rp)<input id="duesAmount" type="number" min="0" value="10000" required></label><label>Target kas kelas (rahasia admin)<input id="duesTarget" type="number" min="0" placeholder="Contoh: 500000"></label><button class="primary" type="submit">Simpan pengaturan</button></form><p id="duesAdminInfo" class="muted small"></p></div>
+        </div>
+      </section>
+
+      <section id="page-announcements" class="page"><div class="panel"><div class="section-head"><div><h3>Pengumuman & Agenda</h3><p class="muted">Perhatikan tanggal dan perkiraan waktu pelaksanaan.</p></div></div><div id="announcementList" class="empty">Memuat pengumuman...</div></div></section>
+
+      <section id="page-manage" class="page">
+        <div class="panel"><h3>Kelola Kelas</h3><p class="muted">Semua perubahan di bagian ini hanya dapat dilakukan admin.</p>
+          <div class="manage-tabs">
+            <button class="secondary active" data-manage="lessons">Pelajaran</button><button class="secondary" data-manage="duties">Piket</button><button class="secondary" data-manage="announcements">Pengumuman</button><button class="secondary" data-manage="students">Siswa</button>
+          </div>
+          <div id="manage-lessons" class="manage-panel">
+            <h4>Tambah jadwal pelajaran</h4><form id="lessonForm" class="form-grid"><label>Hari<select id="lessonDay"><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option></select></label><label>Jam<input id="lessonTime" placeholder="07.00–08.20" required></label><label>Mata pelajaran<input id="lessonSubject" required></label><label>Guru / catatan<input id="lessonTeacher"></label><button class="primary">Tambah jadwal</button></form><div id="adminLessonList"></div>
+          </div>
+          <div id="manage-duties" class="manage-panel hidden">
+            <h4>Tambah jadwal piket</h4><form id="dutyForm" class="form-grid"><label>Hari<select id="dutyDay"><option>Senin</option><option>Selasa</option><option>Rabu</option><option>Kamis</option><option>Jumat</option></select></label><label>Nama siswa<select id="dutyStudent" required></select></label><label>Tugas<input id="dutyTask" placeholder="Menyapu, menghapus papan..." required></label><button class="primary">Tambah piket</button></form><div id="adminDutyList"></div>
+          </div>
+          <div id="manage-announcements" class="manage-panel hidden">
+            <h4>Buat pengumuman / agenda</h4><form id="announcementForm" class="form-grid"><label>Judul<input id="announcementTitle" required></label><label>Tanggal agenda<input id="announcementDate" type="date"></label><label>Jam<input id="announcementTime" type="time"></label><label>Lokasi<input id="announcementPlace"></label><label class="span-2">Keterangan tanggal<select id="dateCertainty"><option value="pasti">Tanggal pasti</option><option value="perkiraan">Tanggal perkiraan</option></select></label><label class="span-2">Isi pengumuman<textarea id="announcementBody" rows="3" required></textarea></label><button class="primary">Terbitkan pengumuman</button></form><div id="adminAnnouncementList"></div>
+          </div>
+          <div id="manage-students" class="manage-panel hidden"><h4>Daftar akun siswa</h4><p class="muted small">Akun login dibuat di Supabase Authentication. Di sini admin mengatur nama dan kode QR siswa.</p><form id="studentForm" class="form-grid"><label>Email akun<input id="studentEmail" type="email" required></label><label>Nama siswa<input id="studentName" required></label><label>Kode QR (unik)<input id="studentQr" required placeholder="Contoh: VIIC-001"></label><button class="primary">Simpan profil siswa</button></form><div id="studentList"></div></div>
+        </div>
+      </section>
+      <footer>VII-C • Portal Informasi Kelas</footer>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
