@@ -19,13 +19,49 @@ const nextSchoolDate = (from, includeToday=false) => {let d=new Date(`${from}T12
 const releaseTomorrow = () => {const n=nowJakarta();return n.getHours()>=18 ? nextSchoolDate(todayISO(),false) : nextSchoolDate(todayISO(),true);};
 const setMessage=(id,msg)=>{if($(id))$(id).textContent=msg;};
 function showApp(){ $("loginView").classList.add("hidden");$("appView").classList.remove("hidden");$("sideName").textContent=profile?.full_name||currentUser.email;$("welcomeName").textContent=profile?.full_name||"Siswa";$("sideRole").textContent=isAdmin()?"Administrator":"Siswa";$("avatarInitial").textContent=(profile?.full_name||"V").charAt(0).toUpperCase();document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!isAdmin()));
-                   $("attendanceScannerArea").classList.toggle("hidden", isAdmin());$("todayLabel").textContent=nowJakarta().toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",timeZone:"Asia/Jakarta"});}
+                   $("studentPersonalQR").classList.toggle("hidden", isAdmin());$("todayLabel").textContent=nowJakarta().toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",timeZone:"Asia/Jakarta"});}
 async function loadProfile(user){const {data,error}=await db.from("profiles").select("*").eq("id",user.id).single();if(error)throw new Error("Profil belum tersedia. Minta admin memeriksa tabel profiles.");profile=data;}
 async function login(email,password){const {data,error}=await db.auth.signInWithPassword({email,password});if(error)throw error;currentUser=data.user;await loadProfile(currentUser);showApp();await refreshAll();}
 async function logout(){if(scanner){try{await scanner.stop();}catch(e){}}await db.auth.signOut();location.reload();}
 function goPage(page){currentPage=page;document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("page-"+page)?.classList.add("active");document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));const labels={home:"Beranda",attendance:"Presensi",lessons:"Jadwal Pelajaran",duties:"Jadwal Piket",dues:"Uang Kas",announcements:"Pengumuman",manage:"Kelola Kelas"};$("pageTitle").textContent=labels[page]||"VII-C";if(page==="manage")loadManage();}
 async function getRows(table,order="created_at"){const {data,error}=await db.from(table).select("*").order(order,{ascending:true});if(error)throw error;return data||[];}
-async function refreshAll(){try{await Promise.all([renderAttendance(),renderLessons(),renderDuties(),renderDues(),renderAnnouncements(),renderHome()]);}catch(e){console.error(e);}}
+const display = $("personalQRDisplay");
+  const message = $("personalQRMessage");
+
+  $("studentPersonalQR").classList.remove("hidden");
+  display.innerHTML = "";
+
+  if (!profile?.qr_code) {
+    message.textContent = "QR pribadi belum dibuat. Hubungi admin kelas.";
+    return;
+  }
+
+  new QRCode(display, {
+    text: profile.qr_code,
+    width: 240,
+    height: 240,
+    colorDark: "#000000",
+    colorLight: "#ffffff",
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  message.textContent = "Tunjukkan QR ini kepada admin.";
+}
+async function refreshAll(){
+  try {
+    await Promise.all([
+      renderAttendance(),
+      renderLessons(),
+      renderDuties(),
+      renderDues(),
+      renderAnnouncements(),
+      renderHome(),
+      renderPersonalQR()
+    ]);
+  } catch(e) {
+    console.error(e);
+  }
+}
 async function renderAttendance(){const host=$("attendanceStudent");if(!isSchoolDay(todayISO())){host.innerHTML='<p>Akhir pekan. Presensi tidak dihitung pada Sabtu dan Minggu.</p>';return;}let q=db.from("attendance").select("*,profiles(full_name)").eq("attendance_date",todayISO());if(!isAdmin())q=q.eq("student_id",currentUser.id);const {data,error}=await q.order("created_at");if(error)throw error;host.innerHTML=data?.length?data.map(r=>`<div class="item"><b>${escapeHTML(r.profiles?.full_name||"Siswa")}</b><span class="tag ${r.status==="masuk"?"status-good":"status-bad"}">${r.status==="masuk"?"Masuk":"Tidak masuk"}</span><small>${fmtDate(r.attendance_date)}</small></div>`).join(""):"<p>Belum ada catatan presensi hari ini.</p>";if(isAdmin()){await fillStudentSelect("attendanceStudentSelect");$("attendanceDate").value=todayISO();}}
 async function renderLessons(){const rows=await getRows("lessons","day_index");const allowed=releaseTomorrow();const todays=rows.filter(r=>r.day_name===days[new Date(`${allowed}T12:00:00+07:00`).getDay()]);$("lessonContent").innerHTML=todays.length?`<p class="muted">Jadwal ${days[new Date(`${allowed}T12:00:00+07:00`).getDay()]} • dibuka ${nowJakarta().getHours()>=18?"sekarang":"pukul 18.00 WIB"}</p>`+todays.map(r=>`<div class="item"><b>${escapeHTML(r.start_time||"")}</b> — ${escapeHTML(r.subject)}<small>${escapeHTML(r.teacher||"")}</small></div>`).join(""):`<p>Belum ada jadwal untuk hari yang dibuka.</p>`;$("homeLesson").textContent=todays[0]?.subject||"—";$("homeNextLesson").textContent=todays[0]?`${todays[0].day_name}: ${todays[0].subject}`:"Belum ada jadwal.";}
 async function renderDuties(){let rows=await db.from("duties").select("*,profiles(full_name)").order("day_index");if(rows.error)throw rows.error;const openDate=releaseTomorrow(),day=days[new Date(`${openDate}T12:00:00+07:00`).getDay()];let list=(rows.data||[]).filter(r=>r.day_name===day);if(!isAdmin())list=list.filter(r=>r.student_id===currentUser.id);$("dutyContent").innerHTML=list.length?`<p class="muted">Jadwal piket ${day} • ${fmtDate(openDate)}</p>`+list.map(r=>`<div class="item"><b>${escapeHTML(r.profiles?.full_name||"Siswa")}</b><small>${escapeHTML(r.task)}</small></div>`).join(""):"<p>Tidak ada jadwal piket untukmu pada hari yang dibuka.</p>";$("homeDuty").textContent=list.length?day:"—";}
@@ -33,7 +69,7 @@ async function renderDues(){const source=isAdmin()?"class_settings":"public_clas
 async function renderAnnouncements(){const rows=await getRows("announcements","event_date");$("announcementList").innerHTML=rows.length?rows.map(r=>`<div class="item"><b>${escapeHTML(r.title)}</b>${r.date_certainty==="perkiraan"?'<span class="tag">Perkiraan</span>':''}<small>${r.event_date?fmtDate(r.event_date):"Tanggal menyusul"} ${r.event_time? " • "+escapeHTML(r.event_time):""}${r.location?" • "+escapeHTML(r.location):""}</small><p>${escapeHTML(r.body)}</p></div>`).join(""):"<p>Belum ada pengumuman.</p>";$("homeAnnouncements").innerHTML=rows.slice(-2).reverse().map(r=>`<div class="item"><b>${escapeHTML(r.title)}</b><small>${r.event_date?fmtDate(r.event_date):"Tanggal menyusul"}</small></div>`).join("")||"Belum ada pengumuman.";}
 async function renderHome(){if(isSchoolDay(todayISO())){$("homeAttendance").textContent="Hari sekolah";$("attendanceHint").textContent="Status: cek presensi";}else{$("homeAttendance").textContent="Libur akhir pekan";$("attendanceHint").textContent="Tidak dihitung";}}
 async function fillStudentSelect(id){const {data,error}=await db.from("profiles").select("id,full_name,email,qr_code").eq("role","siswa").order("full_name");if(error)throw error;students=data||[];$(id).innerHTML=students.map(s=>`<option value="${s.id}">${escapeHTML(s.full_name||s.email)}</option>`).join("");}
-async function loadManage(){if(!isAdmin())return;await fillStudentSelect("dutyStudent");await fillStudentSelect("attendanceStudentSelect");const [lessons,duties,ann]=await Promise.all([getRows("lessons","day_index"),db.from("duties").select("*,profiles(full_name)").order("day_index"),getRows("announcements","event_date")]);$("adminLessonList").innerHTML=lessons.map(r=>`<div class="item">${r.day_name} • ${escapeHTML(r.start_time)} • ${escapeHTML(r.subject)} <button class="text-btn" onclick="deleteRow('lessons','${r.id}')">Hapus</button></div>`).join("");$("adminDutyList").innerHTML=(duties.data||[]).map(r=>`<div class="item">${r.day_name} • ${escapeHTML(r.profiles?.full_name)} • ${escapeHTML(r.task)} <button class="text-btn" onclick="deleteRow('duties','${r.id}')">Hapus</button></div>`).join("");$("adminAnnouncementList").innerHTML=ann.map(r=>`<div class="item">${escapeHTML(r.title)} <button class="text-btn" onclick="deleteRow('announcements','${r.id}')">Hapus</button></div>`).join("");const {data:profiles}=await db.from("profiles").select("*").eq("role","siswa").order("full_name");$("studentList").innerHTML=(profiles||[]).map(s=>`<div class="item"><b>${escapeHTML(s.full_name||s.email)}</b><small>${escapeHTML(s.email)} • QR: ${escapeHTML(s.qr_code||"belum diatur")}</small></div>`).join("");}
+async function loadManage(){if(!isAdmin())return;await fillStudentSelect("dutyStudent");await fillStudentSelect("attendanceStudentSelect");await fillStudentSelect("qrStudentSelect");const [lessons,duties,ann]=await Promise.all([getRows("lessons","day_index"),db.from("duties").select("*,profiles(full_name)").order("day_index"),getRows("announcements","event_date")]);$("adminLessonList").innerHTML=lessons.map(r=>`<div class="item">${r.day_name} • ${escapeHTML(r.start_time)} • ${escapeHTML(r.subject)} <button class="text-btn" onclick="deleteRow('lessons','${r.id}')">Hapus</button></div>`).join("");$("adminDutyList").innerHTML=(duties.data||[]).map(r=>`<div class="item">${r.day_name} • ${escapeHTML(r.profiles?.full_name)} • ${escapeHTML(r.task)} <button class="text-btn" onclick="deleteRow('duties','${r.id}')">Hapus</button></div>`).join("");$("adminAnnouncementList").innerHTML=ann.map(r=>`<div class="item">${escapeHTML(r.title)} <button class="text-btn" onclick="deleteRow('announcements','${r.id}')">Hapus</button></div>`).join("");const {data:profiles}=await db.from("profiles").select("*").eq("role","siswa").order("full_name");$("studentList").innerHTML=(profiles||[]).map(s=>`<div class="item"><b>${escapeHTML(s.full_name||s.email)}</b><small>${escapeHTML(s.email)} • QR: ${escapeHTML(s.qr_code||"belum diatur")}</small></div>`).join("");}
 window.deleteRow=async(table,id)=>{if(!confirm("Hapus data ini?"))return;const {error}=await db.from(table).delete().eq("id",id);if(error)alert(error.message);else loadManage();};
 async function saveForm(form,table,payload){const {error}=await db.from(table).insert(payload);if(error)throw error;form.reset();await refreshAll();if(currentPage==="manage")await loadManage();}
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();setMessage("loginMessage","Memeriksa akun...");try{await login($("email").value.trim(),$("password").value);}catch(err){setMessage("loginMessage",err.message||"Login gagal.");}});
@@ -48,21 +84,28 @@ $("announcementForm").addEventListener("submit",async e=>{e.preventDefault();try
 $("duesForm").addEventListener("submit",async e=>{e.preventDefault();const payload={id:1,next_due_date:$("duesDate").value,monthly_amount:Number($("duesAmount").value),target_amount:$("duesTarget").value?Number($("duesTarget").value):null,updated_by:currentUser.id};const {error}=await db.from("class_settings").upsert(payload);if(error)alert(error.message);else{alert("Pengaturan kas diperbarui.");await renderDues();}});
 $("studentForm").addEventListener("submit",async e=>{e.preventDefault();const {data,error}=await db.from("profiles").update({full_name:$("studentName").value,qr_code:$("studentQr").value}).eq("email",$("studentEmail").value.trim()).select();if(error)alert(error.message);else if(!data?.length)alert("Email belum ditemukan. Buat akun tersebut lebih dulu di Supabase Authentication.");else{alert("Profil siswa disimpan.");e.target.reset();await loadManage();}});
 
+
 let scanBusy = false;
 
-// ADMIN: membuat QR Code harian
-$("generateDailyQR").onclick = async () => {
+// ADMIN: membuat QR unik untuk siswa
+$("generateStudentQR").onclick = async () => {
   if (!isAdmin()) return;
 
-  if (!isSchoolDay(todayISO())) {
-    setMessage("qrAdminMessage", "Presensi hanya berlaku Senin–Jumat.");
+  const studentId = $("qrStudentSelect").value;
+
+  if (!studentId) {
+    setMessage("qrAdminMessage", "Pilih siswa terlebih dahulu.");
     return;
   }
 
   try {
-    setMessage("qrAdminMessage", "Membuat QR Code...");
+    setMessage("qrAdminMessage", "Membuat QR siswa...");
 
-    const { data, error } = await db.rpc("create_daily_qr");
+    const { data, error } = await db.rpc(
+      "generate_student_qr",
+      { p_student_id: studentId }
+    );
+
     if (error) throw error;
 
     const display = $("dailyQRDisplay");
@@ -70,30 +113,30 @@ $("generateDailyQR").onclick = async () => {
 
     new QRCode(display, {
       text: data,
-      width: 260,
-      height: 260,
+      width: 240,
+      height: 240,
       colorDark: "#000000",
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.H
     });
 
-    setMessage("qrAdminMessage", "QR Code hari ini berhasil dibuat!");
+    setMessage("qrAdminMessage", "QR siswa berhasil dibuat!");
   } catch (err) {
     setMessage("qrAdminMessage", err.message);
   }
 };
 
-// SISWA: memindai QR Code harian
-$("startStudentScanner").onclick = async () => {
-  if (isAdmin()) return;
+// ADMIN: memulai scanner QR siswa
+$("startAdminScanner").onclick = async () => {
+  if (!isAdmin()) return;
 
   if (!isSchoolDay(todayISO())) {
-    setMessage("studentScanMessage", "Hari ini bukan hari sekolah.");
+    setMessage("adminScanMessage", "Hari ini bukan hari sekolah.");
     return;
   }
 
   try {
-    scanner = new Html5Qrcode("student-qr-reader");
+    scanner = new Html5Qrcode("admin-qr-reader");
 
     await scanner.start(
       { facingMode: "environment" },
@@ -105,43 +148,36 @@ $("startStudentScanner").onclick = async () => {
 
         try {
           const { data, error } = await db.rpc(
-            "record_daily_attendance",
-            { p_token: decodedText }
+            "record_student_qr_attendance",
+            { p_qr_code: decodedText }
           );
 
           if (error) throw error;
 
-          setMessage("studentScanMessage", data);
+          setMessage("adminScanMessage", data);
           await renderAttendance();
-
-          await scanner.stop();
-          scanner.clear();
-          scanner = null;
-
-          $("startStudentScanner").disabled = false;
-          $("stopStudentScanner").disabled = true;
+          await stopAdminScanner();
 
         } catch (err) {
-          setMessage("studentScanMessage", err.message);
+          setMessage("adminScanMessage", err.message);
         } finally {
           scanBusy = false;
         }
       }
     );
 
-    $("startStudentScanner").disabled = true;
-    $("stopStudentScanner").disabled = false;
+    $("startAdminScanner").disabled = true;
+    $("stopAdminScanner").disabled = false;
+
+    setMessage("adminScanMessage", "Kamera siap memindai QR siswa.");
 
   } catch (err) {
-    setMessage(
-      "studentScanMessage",
-      "Kamera gagal dibuka. Izinkan akses kamera."
-    );
+    setMessage("adminScanMessage", "Kamera gagal dibuka. Periksa izin kamera.");
   }
 };
 
-// Mematikan kamera
-$("stopStudentScanner").onclick = async () => {
+// Menghentikan scanner admin
+async function stopAdminScanner() {
   if (scanner) {
     try {
       await scanner.stop();
@@ -153,8 +189,11 @@ $("stopStudentScanner").onclick = async () => {
     scanner = null;
   }
 
-  $("startStudentScanner").disabled = false;
-  $("stopStudentScanner").disabled = true;
-};
+  $("startAdminScanner").disabled = false;
+  $("stopAdminScanner").disabled = true;
+}
+
+// Tombol mematikan kamera
+$("stopAdminScanner").onclick = stopAdminScanner;
 
 (async()=>{if(SUPABASE_URL.startsWith("ISI_")||SUPABASE_ANON_KEY.startsWith("ISI_")){setMessage("loginMessage","Atur Project URL dan publishable key di app.js terlebih dahulu.");return;}const {data:{session}}=await db.auth.getSession();if(session){try{currentUser=session.user;await loadProfile(currentUser);showApp();await refreshAll();}catch(e){setMessage("loginMessage",e.message);}}db.auth.onAuthStateChange(async(event,session)=>{if(event==="SIGNED_OUT")return;if(event==="SIGNED_IN"&&session&&!profile){try{currentUser=session.user;await loadProfile(currentUser);showApp();await refreshAll();}catch(e){console.error(e);}}});})();
