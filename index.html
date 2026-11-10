@@ -74,66 +74,89 @@
       </section>
 
       
+
 <section id="page-attendance" class="page">
   <div class="panel">
     <div class="section-head">
       <div>
         <h3>Presensi VII C</h3>
-        <p class="muted">Presensi Senin–Jumat menggunakan QR Code harian.</p>
+        <p class="muted">Presensi Senin–Jumat menggunakan QR pribadi setiap siswa.</p>
       </div>
-      <span class="pill">QR Harian</span>
+      <span class="pill">QR Unik Siswa</span>
     </div>
 
     <div id="attendanceStudent" class="empty">
       Memuat presensi...
     </div>
 
+    <!-- QR PRIBADI SISWA -->
+    <div id="studentPersonalQR" class="hidden">
+      <hr>
+      <h4>QR Code Pribadi Saya</h4>
+      <p class="muted small">Tunjukkan QR ini kepada admin untuk melakukan presensi.</p>
+      <div id="personalQRDisplay" class="qr-box"></div>
+      <p id="personalQRMessage" class="message"></p>
+    </div>
+
+    <!-- FITUR ADMIN -->
     <div id="attendanceAdmin" class="admin-only hidden">
       <hr>
-      <h4>QR Code Presensi Hari Ini</h4>
-      <p class="muted small">Buat satu QR Code untuk seluruh siswa.</p>
-      <button id="generateDailyQR" class="primary">
-        + Buat Kode QR
+      <h4>Buat QR Code Siswa</h4>
+      <p class="muted small">Pilih siswa untuk membuat QR Code unik.</p>
+
+      <label>Nama siswa</label>
+      <select id="qrStudentSelect"></select>
+
+      <button id="generateStudentQR" class="primary" type="button">
+        Buat QR Siswa
       </button>
+
       <div id="dailyQRDisplay" class="qr-box"></div>
       <p id="qrAdminMessage" class="message"></p>
 
       <hr>
-      <h4>Input presensi manual</h4>
+      <h4>Scan QR Siswa</h4>
+      <p class="muted small">Admin memindai QR pribadi milik siswa.</p>
+
+      <div id="admin-qr-reader" class="qr-box"></div>
+
+      <button id="startAdminScanner" class="primary" type="button">
+        Mulai Scan QR
+      </button>
+
+      <button id="stopAdminScanner" class="secondary" type="button" disabled>
+        Matikan Kamera
+      </button>
+
+      <p id="adminScanMessage" class="message"></p>
+
+      <hr>
+      <h4>Input Presensi Manual</h4>
+
       <form id="attendanceForm" class="form-grid">
         <label>Siswa
           <select id="attendanceStudentSelect" required></select>
         </label>
+
         <label>Tanggal
           <input id="attendanceDate" type="date" required>
         </label>
+
         <label>Status
           <select id="attendanceStatus">
             <option value="masuk">Masuk</option>
             <option value="tidak_masuk">Tidak masuk</option>
           </select>
         </label>
-        <button class="primary" type="submit">Simpan presensi</button>
-      </form>
-    </div>
 
-    <div id="attendanceScannerArea">
-      <hr>
-      <h4>Scan QR Code Presensi</h4>
-      <p class="muted small">
-        Login menggunakan akun siswa masing-masing, lalu pindai QR Code dari admin.
-      </p>
-      <div id="student-qr-reader" class="qr-box"></div>
-      <button id="startStudentScanner" class="secondary">
-        Mulai Scan
-      </button>
-      <button id="stopStudentScanner" class="secondary" disabled>
-        Matikan Kamera
-      </button>
-      <p id="studentScanMessage" class="message"></p>
+        <button class="primary" type="submit">
+          Simpan Presensi
+        </button>
+      </form>
     </div>
   </div>
 </section>
+
 
 
       <section id="page-lessons" class="page">
